@@ -18,7 +18,7 @@ export default function OrgSwitcher() {
     (m) => m.org_id === claims.active_org_id
   );
 
-  if (claims.memberships.length <= 1) {
+  if (claims.active_role === "student" || claims.memberships.length <= 1) {
     return (
       <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-gray-800 border border-gray-700/50 text-white select-none">
         <div className="w-8 h-8 rounded-lg bg-[#4A3ABA] flex items-center justify-center font-bold text-sm shrink-0">

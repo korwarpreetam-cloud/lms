@@ -365,6 +365,17 @@ create policy assignments_write_admin on public.assignments
     and organization_id = public.active_org_id()
   );
 
+create policy assignments_write_trainer on public.assignments
+  for all to authenticated
+  using (
+    public.is_trainer_for_cohort(cohort_id)
+    and organization_id = public.active_org_id()
+  )
+  with check (
+    public.is_trainer_for_cohort(cohort_id)
+    and organization_id = public.active_org_id()
+  );
+
 -- SUBMISSIONS Policies
 -- Student can select/insert/update their own submissions.
 -- Trainers can select submissions for cohorts they teach.
