@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery } from "../../../lib/hooks";
 import { fetchOrganizations } from "../../../lib/queries";
 import { useAuth } from "../../../hooks/useAuth";
@@ -8,6 +9,7 @@ import { useToast } from "../../../hooks/useToast";
 import { createClient } from "../../../lib/auth";
 
 export default function SchoolsPage() {
+  const router = useRouter();
   const { claims, switchOrg } = useAuth();
   const { showToast } = useToast();
   const activeOrgId = claims?.active_org_id || "";
@@ -99,19 +101,10 @@ export default function SchoolsPage() {
 
       if (error) throw error;
 
-      showToast("School deactivated successfully", "success");
+      showToast("School deactivated successfully!", "success");
       setIsDeactivateOpen(false);
       setSelectedSchool(null);
       refetch();
-
-      if (selectedSchool.id === activeOrgId) {
-        const otherOrg = claims?.memberships?.find(m => m.org_id !== activeOrgId);
-        if (otherOrg) {
-          await switchOrg(otherOrg.org_id);
-        } else {
-          window.location.reload();
-        }
-      }
     } catch (err) {
       showToast(err.message || "Failed to deactivate school", "error");
     } finally {
@@ -121,31 +114,25 @@ export default function SchoolsPage() {
 
   const handleSwitch = async (orgId) => {
     try {
-      showToast("Switching school context...", "info");
       await switchOrg(orgId);
-      showToast("Context switched successfully", "success");
+      showToast("Context switched successfully!", "success");
     } catch (err) {
-      showToast(err.message || "Failed to switch organization", "error");
+      showToast(err.message || "Failed to switch organization context", "error");
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight">School Management</h1>
-          <p className="text-sm text-gray-500 font-medium mt-1">
-            Create and edit academy branches, deactivate inactive schools, and switch active organization contexts.
+          <h1 className="text-3xl font-black text-gray-900 tracking-tight">Schools Dashboard</h1>
+          <p className="text-sm text-gray-550 font-medium mt-1">
+            Overview of platform school tenants. Switch contexts, rename schools, or add a brand new school.
           </p>
         </div>
         <button
-          onClick={() => {
-            setSchoolName("");
-            setSchoolSlug("");
-            setIsCreateOpen(true);
-          }}
-          className="bg-[#4A3ABA] text-white hover:bg-[#3A2A9A] transition-all px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-1.5 cursor-pointer shadow-md"
+          onClick={() => setIsCreateOpen(true)}
+          className="bg-[#4A3ABA] hover:bg-[#3A2A9A] text-white px-5 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-purple-900/10 cursor-pointer select-none transition-all"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>
@@ -167,7 +154,7 @@ export default function SchoolsPage() {
         </div>
       ) : !schools || schools.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-gray-250 max-w-xl mx-auto shadow-sm">
-          <p className="text-gray-500 text-sm font-semibold">No schools registered on the platform yet.</p>
+          <p className="text-gray-550 text-sm font-semibold">No schools registered on the platform yet.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -186,7 +173,14 @@ export default function SchoolsPage() {
                   </div>
                 )}
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900 truncate pr-20">{school.name}</h3>
+                  <button
+                    onClick={() => router.push(`/dashboard/schools/${school.id}`)}
+                    className="text-left group cursor-pointer block"
+                  >
+                    <h3 className="text-lg font-black text-gray-900 group-hover:text-purple-600 transition-colors truncate pr-20">
+                      {school.name}
+                    </h3>
+                  </button>
                   <p className="text-xs text-gray-400 font-mono mt-1">/{school.slug}</p>
                   <div className="mt-3 flex items-center gap-1.5">
                     <span className={`w-2 h-2 rounded-full ${school.is_active ? "bg-green-500" : "bg-red-400"}`} />
@@ -196,7 +190,7 @@ export default function SchoolsPage() {
                   </div>
                 </div>
 
-                <div className="flex gap-2 items-center">
+                <div className="flex gap-2 items-center mt-4">
                   {isActive ? (
                     <button
                       disabled
@@ -210,7 +204,7 @@ export default function SchoolsPage() {
                       disabled={!school.is_active}
                       className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold uppercase text-center transition-all ${
                         school.is_active
-                          ? "bg-gray-900 text-white hover:bg-gray-800 cursor-pointer"
+                          ? "bg-gray-950 text-white hover:bg-gray-800 cursor-pointer"
                           : "bg-gray-100 text-gray-450 cursor-not-allowed"
                       }`}
                     >
@@ -258,57 +252,30 @@ export default function SchoolsPage() {
 
       {/* Create School Modal */}
       {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/45 backdrop-blur-sm" onClick={() => setIsCreateOpen(false)} />
-          <div className="relative bg-white w-full max-w-md rounded-3xl p-8 border border-gray-100 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-[#4A3ABA] to-[#6B5CE7]" />
-            <form onSubmit={handleCreateSchool} className="space-y-6">
-              <div>
-                <h3 className="text-2xl font-black text-gray-900 tracking-tight">Create School</h3>
-                <p className="text-sm text-gray-500 mt-1 font-medium">Add a new organization/school to the Solutiions LMS platform.</p>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-650 uppercase tracking-wider mb-2">School Name</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Swaminarayan Academy"
-                    value={schoolName}
-                    onChange={(e) => {
-                      setSchoolName(e.target.value);
-                      setSchoolSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""));
-                    }}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:border-[#4A3ABA] outline-none text-gray-900 font-semibold"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-650 uppercase tracking-wider mb-2">Slug (URL identifier)</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. swaminarayan"
-                    value={schoolSlug}
-                    onChange={(e) => setSchoolSlug(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:border-[#4A3ABA] outline-none text-gray-900 font-mono text-xs"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-3 justify-end pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsCreateOpen(false)}
-                  className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-900 border border-gray-200 rounded-xl cursor-pointer"
-                  disabled={actionLoading}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-xs font-bold text-white bg-[#4A3ABA] hover:bg-[#3A2A9A] rounded-xl flex items-center gap-1.5 cursor-pointer"
-                  disabled={actionLoading}
-                >
-                  {actionLoading ? "Creating..." : "Create School"}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full border border-gray-150 shadow-2xl animate-fade-in">
+            <form onSubmit={handleCreateSchool} className="space-y-4">
+              <h3 className="text-lg font-bold text-gray-900">Add School Branch</h3>
+              <input
+                type="text"
+                required
+                placeholder="School Name"
+                value={schoolName}
+                onChange={(e) => setSchoolName(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-[#4A3ABA] text-gray-900"
+              />
+              <input
+                type="text"
+                required
+                placeholder="slug-url"
+                value={schoolSlug}
+                onChange={(e) => setSchoolSlug(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-[#4A3ABA] text-gray-900 font-mono"
+              />
+              <div className="flex gap-2 justify-end">
+                <button type="button" onClick={() => setIsCreateOpen(false)} className="text-xs font-bold text-gray-500 border border-gray-200 px-4 py-2 rounded-xl">Cancel</button>
+                <button type="submit" className="text-xs font-bold text-white bg-[#4A3ABA] px-4 py-2 rounded-xl" disabled={actionLoading}>
+                  {actionLoading ? "Creating..." : "Create"}
                 </button>
               </div>
             </form>
@@ -318,43 +285,21 @@ export default function SchoolsPage() {
 
       {/* Edit School Modal */}
       {isEditOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/45 backdrop-blur-sm" onClick={() => setIsEditOpen(false)} />
-          <div className="relative bg-white w-full max-w-md rounded-3xl p-8 border border-gray-100 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="absolute top-0 left-0 w-full h-1.5 bg-[#4A3ABA]" />
-            <form onSubmit={handleEditSchool} className="space-y-6">
-              <div>
-                <h3 className="text-2xl font-black text-gray-900 tracking-tight">Rename School</h3>
-                <p className="text-sm text-gray-500 mt-1 font-medium">Update the name of the school.</p>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-650 uppercase tracking-wider mb-2">School Name</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Swaminarayan Academy"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:border-[#4A3ABA] outline-none text-gray-900 font-semibold"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-3 justify-end pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsEditOpen(false)}
-                  className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-900 border border-gray-200 rounded-xl cursor-pointer"
-                  disabled={actionLoading}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-xs font-bold text-white bg-[#4A3ABA] hover:bg-[#3A2A9A] rounded-xl flex items-center gap-1.5 cursor-pointer"
-                  disabled={actionLoading}
-                >
-                  {actionLoading ? "Updating..." : "Save Changes"}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full border border-gray-150 shadow-2xl animate-fade-in">
+            <form onSubmit={handleEditSchool} className="space-y-4">
+              <h3 className="text-lg font-bold text-gray-900">Rename School</h3>
+              <input
+                type="text"
+                required
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-[#4A3ABA] text-gray-900 font-bold"
+              />
+              <div className="flex gap-2 justify-end">
+                <button type="button" onClick={() => setIsEditOpen(false)} className="text-xs font-bold text-gray-500 border border-gray-200 px-4 py-2 rounded-xl">Cancel</button>
+                <button type="submit" className="text-xs font-bold text-white bg-[#4A3ABA] px-4 py-2 rounded-xl" disabled={actionLoading}>
+                  {actionLoading ? "Updating..." : "Save"}
                 </button>
               </div>
             </form>
@@ -364,39 +309,22 @@ export default function SchoolsPage() {
 
       {/* Deactivate School Modal */}
       {isDeactivateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/45 backdrop-blur-sm" onClick={() => setIsDeactivateOpen(false)} />
-          <div className="relative bg-white w-full max-w-md rounded-3xl p-8 border border-gray-100 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="absolute top-0 left-0 w-full h-1.5 bg-rose-600" />
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-2xl font-black text-gray-900 tracking-tight">Deactivate School</h3>
-                <p className="text-sm text-gray-500 mt-1.5 font-medium leading-relaxed">
-                  Are you sure you want to deactivate <span className="font-bold text-gray-900">{selectedSchool?.name}</span>? 
-                  This will temporarily disable access to all courses, classrooms, and rosters under this school branch.
-                </p>
-              </div>
-              <div className="flex gap-3 justify-end pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsDeactivateOpen(false)}
-                  className="px-4 py-2 text-xs font-bold text-gray-500 border border-gray-200 rounded-xl hover:text-gray-900 cursor-pointer"
-                  disabled={actionLoading}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDeactivateSchool}
-                  className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl flex items-center gap-1.5 cursor-pointer"
-                  disabled={actionLoading}
-                >
-                  {actionLoading ? "Deactivating..." : "Deactivate School"}
-                </button>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full border border-gray-150 shadow-2xl animate-fade-in space-y-4">
+            <h3 className="text-lg font-bold text-gray-900">Deactivate School?</h3>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Are you sure you want to deactivate <strong className="text-gray-900">{selectedSchool?.name}</strong>? Users will no longer be able to log in to this branch context.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button type="button" onClick={() => setIsDeactivateOpen(false)} className="text-xs font-bold text-gray-500 border border-gray-200 px-4 py-2 rounded-xl">Cancel</button>
+              <button type="button" onClick={handleDeactivateSchool} className="text-xs font-bold text-white bg-rose-500 px-4 py-2 rounded-xl" disabled={actionLoading}>
+                {actionLoading ? "Deactivating..." : "Deactivate"}
+              </button>
             </div>
           </div>
         </div>
       )}
+
     </div>
   );
 }

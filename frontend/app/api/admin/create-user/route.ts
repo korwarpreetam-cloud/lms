@@ -41,13 +41,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (activeRole !== 'owner') {
-      return NextResponse.json({ error: 'Unauthorized: Only platform owners can provision users' }, { status: 403 });
+    if (activeRole !== 'owner' && activeRole !== 'trainer') {
+      return NextResponse.json({ error: 'Unauthorized: Only platform owners or trainers can provision users' }, { status: 403 });
     }
 
     // 3. Parse input body
     const body = await request.json();
     const { email, password, fullName, roleCode, organizationId, branch } = body;
+
+    if (activeRole === 'trainer' && roleCode !== 'student') {
+      return NextResponse.json({ error: 'Unauthorized: Trainers are only permitted to provision student accounts' }, { status: 403 });
+    }
 
     if (!email || !password || !fullName || !roleCode || !organizationId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });

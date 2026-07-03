@@ -1,25 +1,132 @@
-export default function Page() {
+"use client";
+
+import { useState, useEffect } from "react";
+import { useAuth } from "../../../hooks/useAuth";
+import { createClient } from "../../../lib/auth";
+import { Card, CardContent } from "../../../components/ui/Card";
+import { Badge } from "../../../components/ui/Badge";
+import { TableRowSkeleton } from "../../../components/ui/Skeleton";
+
+export default function TrainerClassesPage() {
+  const { claims } = useAuth();
+  const activeOrgId = claims?.active_org_id || "";
+  const activeMembership = claims?.memberships?.find(m => m.org_id === activeOrgId);
+  const trainerMemId = activeMembership?.membership_id;
+
+  const [classes, setClasses] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadClasses() {
+      if (!trainerMemId) {
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      const supabase = createClient();
+      try {
+        const { data, error } = await supabase
+          .from("cohort_trainers")
+          .select(`
+            id,
+            is_lead,
+            cohorts (
+              id,
+              name,
+              status,
+              start_date,
+              end_date,
+              courses (name)
+            )
+          `)
+          .eq("membership_id", trainerMemId)
+          .is("unassigned_at", null);
+
+        if (error) throw error;
+        setClasses(data || []);
+      } catch (err) {
+        console.error("Failed to load classes:", err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadClasses();
+  }, [trainerMemId]);
+
   return (
-    <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 bg-white rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-[#4A3ABA] via-[#6B5CE7] to-[#F5A623]" />
-      <div className="absolute -top-24 -right-24 w-48 h-48 rounded-full bg-[#4A3ABA]/5" />
-      <div className="absolute -bottom-24 -left-24 w-48 h-48 rounded-full bg-[#F5A623]/5" />
-      
-      <div className="relative z-10 text-center max-w-md">
-        <div className="w-20 h-20 rounded-2xl bg-[#4A3ABA]/10 text-[#4A3ABA] flex items-center justify-center mx-auto mb-6 shadow-lg shadow-purple-50">
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" />
-          </svg>
-        </div>
-        <h1 className="text-3xl font-bold text-gray-900 tracking-tight mb-3">Trainer Classes Portal</h1>
-        <p className="text-gray-500 mb-8 leading-relaxed">
-          The Classes management records are being populated. Live bindings will display curriculum logs and branch session calendars.
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-black text-gray-900 tracking-tight">Classes Portal</h1>
+        <p className="text-sm text-gray-550 font-medium mt-1">
+          Review all scheduled classes, cohort batches, course timelines, and instructor levels assigned to you.
         </p>
-        <div className="inline-flex items-center gap-2 bg-[#F5A623]/10 text-[#E09000] px-4 py-2 rounded-full text-xs font-semibold">
-          <span className="w-2 h-2 rounded-full bg-[#F5A623] animate-ping" />
-          Classes Database Syncing
-        </div>
       </div>
+
+      <Card>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50/50 text-gray-400 font-bold">
+                  <th className="p-4">Cohort Class</th>
+                  <th className="p-4">Assigned Course</th>
+                  <th className="p-4">Start / End Dates</th>
+                  <th className="p-4">Instructor Role</th>
+                  <th className="p-4">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {loading ? (
+                  Array.from({ length: 2 }).map((_, i) => (
+                    <tr key={i}>
+                      <td colSpan={5} className="p-4"><TableRowSkeleton /></td>
+                    </tr>
+                  ))
+                ) : classes.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="p-8 text-center text-gray-500 font-semibold">
+                      No cohort classes currently assigned to your instruction.
+                    </td>
+                  </tr>
+                ) : (
+                  classes.map((cls) => {
+                    const cohort = cls.cohorts;
+                    if (!cohort) return null;
+                    return (
+                      <tr key={cls.id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="p-4 font-bold text-gray-900">{cohort.name}</td>
+                        <td className="p-4 text-gray-700 font-semibold">{cohort.courses?.name || "—"}</td>
+                        <td className="p-4 text-gray-500 font-mono text-xs">
+                          {cohort.start_date ? new Date(cohort.start_date).toLocaleDateString() : "TBD"} –{" "}
+                          {cohort.end_date ? new Date(cohort.end_date).toLocaleDateString() : "TBD"}
+                        </td>
+                        <td className="p-4">
+                          <Badge variant={cls.is_lead ? "primary" : "secondary"}>
+                            {cls.is_lead ? "Lead Trainer" : "Assistant Trainer"}
+                          </Badge>
+                        </td>
+                        <td className="p-4 font-semibold uppercase text-xs">
+                          <span
+                            className={
+                              cohort.status === "active"
+                                ? "text-green-600"
+                                : cohort.status === "completed"
+                                ? "text-gray-400"
+                                : "text-blue-500"
+                            }
+                          >
+                            {cohort.status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

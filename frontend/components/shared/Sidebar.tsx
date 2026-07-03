@@ -113,29 +113,20 @@ const navigationByRole: Record<string, { name: string; href: string; icon: React
     { name: "Classes", href: "/dashboard-trainer/classes", icon: <Icons.Schedules /> },
     { name: "Projects", href: "/dashboard-trainer/projects", icon: <Icons.Projects /> },
   ],
-  student: [
-    { name: "Dashboard", href: "/dashboard-student", icon: <Icons.Dashboard /> },
-    { name: "Courses", href: "/dashboard-student/courses", icon: <Icons.Courses /> },
-    { name: "Assignments", href: "/dashboard-student/assignments", icon: <Icons.Assignments /> },
-    { name: "Projects", href: "/dashboard-student/projects", icon: <Icons.Projects /> },
-    { name: "Profile", href: "/dashboard-student/profile", icon: <Icons.Profile /> },
-    { name: "Certificates", href: "/dashboard-student/certificates", icon: <Icons.Certificates /> },
-  ],
 };
 
 const roleLabels: Record<string, string> = {
   owner: "Owner Panel",
   core_team: "Core Team",
   trainer: "Trainer Space",
-  student: "Student Portal",
 };
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { claims, logout } = useAuth();
   
-  const activeRole = claims?.active_role || "student";
-  const navItems = navigationByRole[activeRole] || navigationByRole.student;
+  const activeRole = claims?.active_role || "trainer";
+  const navItems = navigationByRole[activeRole] || navigationByRole.trainer;
 
   return (
     <aside

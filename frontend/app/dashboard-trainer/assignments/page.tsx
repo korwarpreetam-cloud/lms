@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery } from "../../../hooks/useQuery";
 import { useAuth } from "../../../hooks/useAuth";
 import { useToast } from "../../../hooks/useToast";
 import { useMutation } from "../../../hooks/useMutation";
-import { fetchTrainerSubmissions } from "../../../lib/queries";
-import { gradeSubmission } from "../../../lib/mutations";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../../components/ui/Card";
+import { fetchTrainerSubmissions, fetchTrainerCohorts } from "../../../lib/queries";
+import { gradeSubmission, createAssignment } from "../../../lib/mutations";
+import { Card, CardContent } from "../../../components/ui/Card";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { TableRowSkeleton } from "../../../components/ui/Skeleton";
@@ -24,8 +24,23 @@ export default function TrainerAssignmentsPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [scoreInput, setScoreInput] = useState<number | "">("");
 
+  // Create Assignment Form State
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newCohortId, setNewCohortId] = useState("");
+  const [newMaxScore, setNewMaxScore] = useState(100);
+  const [deployLoading, setDeployLoading] = useState(false);
+
   // Fetch student submissions
   const { data: submissions, loading, refetch } = useQuery(fetchTrainerSubmissions, [activeOrgId]);
+
+  // Fetch trainer cohorts for dropdown
+  const [cohorts, setCohorts] = useState<any[]>([]);
+  useEffect(() => {
+    if (activeOrgId) {
+      fetchTrainerCohorts(activeOrgId).then(setCohorts).catch(console.error);
+    }
+  }, [activeOrgId]);
 
   // Mutation helper for grading
   const { mutate: executeGrade, loading: grading } = useMutation(
@@ -54,6 +69,32 @@ export default function TrainerAssignmentsPage() {
     }
 
     await executeGrade(submissionId, scoreInput);
+  };
+
+  const handleCreateAssignment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCohortId) {
+      showToast("Please select a cohort batch", "warning");
+      return;
+    }
+    if (!newTitle.trim()) {
+      showToast("Assignment title is required", "warning");
+      return;
+    }
+    setDeployLoading(true);
+    try {
+      await createAssignment(activeOrgId, newCohortId, newTitle, newMaxScore);
+      showToast("Assignment deployed successfully!", "success");
+      setIsCreateOpen(false);
+      setNewTitle("");
+      setNewCohortId("");
+      setNewMaxScore(100);
+      refetch();
+    } catch (err: any) {
+      showToast(err.message || "Failed to create assignment", "error");
+    } finally {
+      setDeployLoading(false);
+    }
   };
 
   const list = (submissions ?? []).map((s) => {
@@ -88,11 +129,22 @@ export default function TrainerAssignmentsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-black text-gray-905 tracking-tight">Trainer Assignments Desk</h1>
-        <p className="text-sm text-gray-500 font-medium mt-1">
-          Review written answers or code repositories submitted by cohort students, leave feedback, and publish grades.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-gray-900 tracking-tight">Trainer Assignments Desk</h1>
+          <p className="text-sm text-gray-500 font-medium mt-1">
+            Review written answers or code repositories submitted by cohort students, leave feedback, and publish grades.
+          </p>
+        </div>
+        <button
+          onClick={() => setIsCreateOpen(true)}
+          className="px-5 py-3 rounded-xl bg-[#F5A623] text-gray-900 font-bold text-sm shadow-md hover:bg-[#E09000] transition-all flex items-center gap-2 cursor-pointer"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          Deploy Assignment
+        </button>
       </div>
 
       {/* Tabs */}
@@ -104,7 +156,7 @@ export default function TrainerAssignmentsPage() {
               setFilterTab(tab);
               setExpandedId(null);
             }}
-            className={`flex-1 py-2 text-xs font-bold uppercase rounded-xl transition-all ${
+            className={`flex-1 py-2 text-xs font-bold uppercase rounded-xl transition-all cursor-pointer ${
               filterTab === tab
                 ? "bg-[#4A3ABA] text-white shadow-lg"
                 : "text-gray-400 hover:text-gray-900 hover:bg-white/50"
@@ -195,10 +247,8 @@ export default function TrainerAssignmentsPage() {
                           </div>
                         </div>
 
-                        <div className="flex gap-4 text-xs font-medium text-gray-500">
+                        <div className="flex gap-4 text-xs font-medium text-gray-405">
                           <span>Submitted: {new Date(submission.created_at).toLocaleString()}</span>
-                          <span>•</span>
-                          <span>Last updated: {new Date(submission.updated_at).toLocaleString()}</span>
                         </div>
                       </div>
 
@@ -245,6 +295,76 @@ export default function TrainerAssignmentsPage() {
           })
         )}
       </div>
+
+      {/* Deploy Assignment Modal */}
+      {isCreateOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-gray-100 relative animate-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-black text-gray-900 mb-2">Deploy Assignment</h3>
+            <p className="text-xs text-gray-400 mb-6 font-medium">Create a new task, set point scales, and deploy it to a student cohort batch.</p>
+
+            <form onSubmit={handleCreateAssignment} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Target Cohort / Batch</label>
+                <select
+                  required
+                  value={newCohortId}
+                  onChange={(e) => setNewCohortId(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white text-sm focus:border-[#4A3ABA] outline-none text-gray-900 font-semibold"
+                >
+                  <option value="">-- Choose Cohort --</option>
+                  {cohorts.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.courses?.name || "Active Batch"})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Assignment Title</label>
+                <input
+                  type="text"
+                  required
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="e.g. Build a Responsive Landing Page"
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white text-sm focus:border-[#4A3ABA] outline-none text-gray-900 font-semibold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Maximum Points Score</label>
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  value={newMaxScore}
+                  onChange={(e) => setNewMaxScore(Number(e.target.value))}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white text-sm focus:border-[#4A3ABA] outline-none text-gray-900 font-semibold"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateOpen(false)}
+                  className="flex-1 py-3 text-sm font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={deployLoading}
+                  className="flex-1 py-3 text-sm font-bold text-gray-900 bg-[#F5A623] hover:bg-[#E09000] rounded-xl shadow-lg shadow-amber-100 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {deployLoading ? "Deploying..." : "Deploy Assignment"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

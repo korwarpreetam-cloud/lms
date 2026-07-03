@@ -300,3 +300,49 @@ export async function submitAttendance(orgId: string, cohortId: string, date: st
   return data;
 }
 
+/**
+ * Creates a new Course (Admin only).
+ */
+export async function createCourse(orgId: string, name: string, description: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('courses')
+    .insert({
+      organization_id: orgId,
+      name,
+      description,
+      is_active: true
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('createCourse error:', error.message);
+    throw error;
+  }
+  return data;
+}
+
+/**
+ * Toggles a Course active/inactive status (Admin only).
+ */
+export async function toggleCourseStatus(courseId: string, isActive: boolean) {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('courses')
+    .update({
+      is_active: isActive,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', courseId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('toggleCourseStatus error:', error.message);
+    throw error;
+  }
+  return data;
+}
+
+

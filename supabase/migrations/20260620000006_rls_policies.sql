@@ -241,6 +241,11 @@ create policy cohort_students_select_admin on public.cohort_students
     )
   );
 
+create policy cohort_students_write_trainer on public.cohort_students
+  for all to authenticated
+  using (public.is_trainer_for_cohort(cohort_id))
+  with check (public.is_trainer_for_cohort(cohort_id));
+
 create policy cohort_students_write_admin on public.cohort_students
   for all to authenticated
   using (

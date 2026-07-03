@@ -1,23 +1,97 @@
-export default function Page() {
+"use client";
+
+import { useQuery } from "../../../lib/hooks";
+import { fetchAdminMetrics, fetchMembers, fetchCourses } from "../../../lib/queries";
+import { useAuth } from "../../../hooks/useAuth";
+import { Card, CardContent } from "../../../components/ui/Card";
+
+export default function CoreTeamReportsPage() {
+  const { claims } = useAuth();
+  const activeOrgId = claims?.active_org_id || "";
+
+  // Queries
+  const { data: metrics, loading: metricsLoading } = useQuery(() => fetchAdminMetrics(activeOrgId), [activeOrgId]);
+  const { data: members, loading: membersLoading } = useQuery(() => fetchMembers(activeOrgId), [activeOrgId]);
+  const { data: courses, loading: coursesLoading } = useQuery(() => fetchCourses(activeOrgId), [activeOrgId]);
+
+  const trainers = (members ?? []).filter(m => m.roles?.code === 'trainer');
+
   return (
-    <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 bg-white rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-[#4A3ABA] via-[#6B5CE7] to-[#F5A623]" />
-      <div className="absolute -top-24 -right-24 w-48 h-48 rounded-full bg-[#4A3ABA]/5" />
-      <div className="absolute -bottom-24 -left-24 w-48 h-48 rounded-full bg-[#F5A623]/5" />
-      
-      <div className="relative z-10 text-center max-w-md">
-        <div className="w-20 h-20 rounded-2xl bg-[#4A3ABA]/10 text-[#4A3ABA] flex items-center justify-center mx-auto mb-6 shadow-lg shadow-purple-50">
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
-          </svg>
-        </div>
-        <h1 className="text-3xl font-bold text-gray-900 tracking-tight mb-3">Operational Reports</h1>
-        <p className="text-gray-500 mb-8 leading-relaxed">
-          The operational statistics, grades, and attendance metrics report dashboard is currently compiling data.
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-black text-gray-900 tracking-tight">Analytics & Reports</h1>
+        <p className="text-sm text-gray-555 font-medium mt-1">
+          Review operational metrics, active course counts, and organization-wide KPIs.
         </p>
-        <div className="inline-flex items-center gap-2 bg-[#F5A623]/10 text-[#E09000] px-4 py-2 rounded-full text-xs font-semibold">
-          <span className="w-2 h-2 rounded-full bg-[#F5A623] animate-ping" />
-          Aggregating Operations Data
+      </div>
+
+      {/* Metrics Board */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {metricsLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm animate-pulse h-28" />
+          ))
+        ) : (metrics ?? []).slice(0, 4).map((metric) => (
+          <div key={metric.label} className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300">
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">{metric.label}</span>
+            <div className="flex items-baseline gap-2 mt-2">
+              <span className={`text-3xl font-black ${metric.color === "purple" ? "text-[#4A3ABA]" : "text-[#E09000]"}`}>
+                {metric.value}
+              </span>
+              <span className="text-xs text-green-600 font-bold">Live</span>
+            </div>
+            <span className="text-xs text-gray-500 font-medium block mt-1">{metric.detail}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Courses Inventory card */}
+        <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-4">
+          <h3 className="text-lg font-extrabold text-gray-900">Curricula Breakdown</h3>
+          <div className="space-y-3">
+            {coursesLoading ? (
+              <div className="h-12 bg-gray-100 rounded-xl animate-pulse" />
+            ) : !courses || courses.length === 0 ? (
+              <p className="text-xs text-gray-500 font-semibold">No courses created yet.</p>
+            ) : (
+              courses.map(c => (
+                <div key={c.id} className="flex justify-between items-center p-3.5 bg-gray-50 rounded-xl">
+                  <div>
+                    <span className="text-sm font-bold text-gray-900 block">{c.name}</span>
+                    <span className="text-xs text-gray-400 max-w-xs truncate block">{c.description || "No description"}</span>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${c.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
+                    {c.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Trainers workload card */}
+        <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-4">
+          <h3 className="text-lg font-extrabold text-gray-900">Active Instructors</h3>
+          <div className="space-y-3">
+            {membersLoading ? (
+              <div className="h-12 bg-gray-100 rounded-xl animate-pulse" />
+            ) : trainers.length === 0 ? (
+              <p className="text-xs text-gray-500 font-semibold">No trainers assigned.</p>
+            ) : (
+              trainers.map(t => (
+                <div key={t.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                  <div className="w-9 h-9 rounded-xl bg-purple-50 text-[#4A3ABA] flex items-center justify-center font-bold text-sm">
+                    {(t.users?.full_name || "?").charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <span className="text-sm font-bold text-gray-900 block">{t.users?.full_name}</span>
+                    <span className="text-xs text-gray-400 block">{t.users?.email}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
     </div>
