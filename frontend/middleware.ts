@@ -84,11 +84,13 @@ export async function middleware(request: NextRequest) {
 
   if (accessToken) {
     try {
-      const base64 = accessToken.split('.')[1];
-      const json = Buffer.from(base64, 'base64').toString('utf-8');
+      const base64Url = accessToken.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const json = atob(base64);
       const payload = JSON.parse(json);
       appMetadata = payload.app_metadata ?? {};
-    } catch {
+    } catch (e) {
+      console.warn("JWT edge decode error:", e);
       appMetadata = (session?.user?.app_metadata as any) ?? {};
     }
   } else {
